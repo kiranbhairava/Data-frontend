@@ -1,0 +1,83 @@
+﻿import { useState, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
+
+export const useFilters = (tableName) => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
+
+  const filters = useMemo(() => {
+    const params = {};
+    
+    // Common filters
+    if (searchParams.get('search')) params.search = searchParams.get('search');
+    if (searchParams.get('date_from')) params.date_from = searchParams.get('date_from');
+    if (searchParams.get('date_to')) params.date_to = searchParams.get('date_to');
+    
+    // Table-specific filters
+    switch (tableName) {
+      case 'users':
+        if (searchParams.get('auth_method')) params.auth_method = searchParams.get('auth_method');
+        if (searchParams.get('has_phone')) params.has_phone = searchParams.get('has_phone') === 'true';
+        if (searchParams.get('last_login')) params.last_login = searchParams.get('last_login');
+        break;
+      case 'contacts':
+        if (searchParams.get('chosen_field')) params.chosen_field = searchParams.get('chosen_field');
+        break;
+      case 'resumes':
+        if (searchParams.get('user_id')) params.user_id = parseInt(searchParams.get('user_id'));
+        if (searchParams.get('experience_min')) params.experience_min = parseFloat(searchParams.get('experience_min'));
+        if (searchParams.get('experience_max')) params.experience_max = parseFloat(searchParams.get('experience_max'));
+        break;
+    }
+    
+    return params;
+  }, [searchParams, tableName]);
+
+  const updateFilters = useCallback((newFilters) => {
+    const newParams = new URLSearchParams(searchParams);
+    
+    // Remove all existing filters
+    ['search', 'date_from', 'date_to', 'auth_method', 'has_phone', 'last_login', 
+     'chosen_field', 'user_id', 'experience_min', 'experience_max'].forEach(param => {
+      newParams.delete(param);
+    });
+    
+    // Set new filters
+    Object.entries(newFilters).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        newParams.set(key, value.toString());
+      }
+    });
+    
+    // Reset to page 1 when filters change
+    newParams.set('page', '1');
+    
+    setSearchParams(newParams);
+  }, [searchParams, setSearchParams]);
+
+  const clearFilters = useCallback(() => {
+    const newParams = new URLSearchParams();
+    
+    // Keep only pagination and sort params
+    if (searchParams.get('page')) newParams.set('page', searchParams.get('page'));
+    if (searchParams.get('limit')) newParams.set('limit', searchParams.get('limit'));
+    if (searchParams.get('sort_by')) newParams.set('sort_by', searchParams.get('sort_by'));
+    if (searchParams.get('sort_order')) newParams.set('sort_order', searchParams.get('sort_order'));
+    
+    setSearchParams(newParams);
+    setSearchQuery('');
+  }, [searchParams, setSearchParams]);
+
+  const hasActiveFilters = useMemo(() => {
+    return Object.keys(filters).length > 0;
+  }, [filters]);
+
+  return {
+    filters,
+    searchQuery,
+    setSearchQuery,
+    updateFilters,
+    clearFilters,
+    hasActiveFilters
+  };
+};
